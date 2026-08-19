@@ -1,0 +1,6 @@
+{
+  "name": "SS Industrial Advisor",
+  "description": "Industrial advisor and assistant platform for chatbot management, knowledge base, leads, and automations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
