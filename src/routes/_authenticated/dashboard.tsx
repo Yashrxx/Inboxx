@@ -73,7 +73,7 @@ function DashboardPage() {
     refetchInterval: 10000,
   });
 
-  const chatbotIsLive = stats ? stats.chatbot.status === "live" : false;
+  const chatbotIsLive = stats ? stats.chatbot.inquiriesToday > 0 : false;
   const emailIsLive = true; // hardcoded live for now per requirement
   const automationsIsLive = stats ? stats.automations.status === "live" : false;
 
@@ -276,9 +276,9 @@ function DashboardPage() {
 
         {/* 3. Service Live Section (Currently in Use) */}
         <section className="space-y-4 pt-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-slate-200/80">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-slate-900">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
                 Service Live Monitor
               </h2>
             </div>
@@ -415,96 +415,124 @@ function DashboardPage() {
 
         {/* 4. Performance Overview Section */}
         <section className="space-y-4 pt-2">
-          <div className="flex items-center gap-2.5">
-            <div className="text-[#f0533c]">
-              <TrendingUp className="h-5 w-5 stroke-[2.2]" />
-            </div>
+          <div className="pb-2 border-b border-slate-200/80">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
               Performance Overview
             </h2>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3 items-stretch">
-            {/* Card 1: Total Inquiries */}
-            <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-600">Total Inquiries</span>
-                <Users className="h-4 w-4 text-slate-700" />
-              </div>
+          {(() => {
+            const totalInquiries = (stats?.chatbot as any)?.totalInquiries ?? 0;
+            const leadsDist = (stats?.chatbot as any)?.leadsDistribution || {
+              hot: 0,
+              warm: 0,
+              cold: 0,
+              total: 0,
+            };
+            const hasLeads = leadsDist.total > 0;
+            const hotPct = hasLeads ? Math.round((leadsDist.hot / leadsDist.total) * 100) : 0;
+            const warmPct = hasLeads ? Math.round((leadsDist.warm / leadsDist.total) * 100) : 0;
+            const coldPct = hasLeads ? Math.max(0, 100 - hotPct - warmPct) : 0;
 
-              <div className="my-4">
-                <span className="text-4xl font-extrabold tracking-tight text-slate-900">1,248</span>
-              </div>
+            return (
+              <div className="grid gap-6 md:grid-cols-3 items-stretch">
+                {/* Card 1: Total Inquiries */}
+                <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600">Total Inquiries</span>
+                    <Users className="h-4 w-4 text-slate-700" />
+                  </div>
 
-              <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
-                <ArrowUpRight className="h-3.5 w-3.5" />
-                <span>+12% from last week</span>
-              </div>
-            </div>
+                  <div className="my-2.5">
+                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                      {totalInquiries.toLocaleString()}
+                    </span>
+                  </div>
 
-            {/* Card 2: Lead Score Distribution */}
-            <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-              <div className="flex items-center justify-between pb-2">
-                <span className="text-xs font-semibold text-slate-600">
-                  Lead Score Distribution
-                </span>
-                <PieChart className="h-4 w-4 text-slate-700" />
-              </div>
+                  <div className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                    <span>+{stats?.chatbot?.inquiriesToday ?? 0} new inquiries today</span>
+                  </div>
+                </div>
 
-              <div className="my-2 flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                  {/* Stacked Segment Bar */}
-                  <div className="flex flex-1 overflow-hidden rounded-lg">
-                    <div className="flex h-10 flex-[5] items-center justify-center bg-[#f0533c] text-xs font-bold text-white">
-                      50%
+                {/* Card 2: Lead Score Distribution */}
+                <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                    <span className="text-xs font-semibold text-slate-600">
+                      Lead Score Distribution
+                    </span>
+                    <PieChart className="h-4 w-4 text-slate-700" />
+                  </div>
+
+                  <div className="my-2.5 grid grid-cols-3 gap-2">
+                    {/* Hot Category */}
+                    <div className="flex flex-col items-center justify-center text-center p-2 rounded-xl bg-red-50/30 border border-red-100/30">
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#f0533c] uppercase tracking-wider">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#f0533c]" />
+                        <span>Hot</span>
+                      </div>
+                      <span className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                        {hotPct}%
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                        {leadsDist.hot} leads
+                      </span>
                     </div>
-                    <div className="flex h-10 flex-[3] items-center justify-center bg-[#f8b16e] text-xs font-bold text-slate-900">
-                      30%
+
+                    {/* Warm Category */}
+                    <div className="flex flex-col items-center justify-center text-center p-2 rounded-xl bg-amber-50/40 border border-amber-100/30">
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-[#ea580c] uppercase tracking-wider">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#f8b16e]" />
+                        <span>Warm</span>
+                      </div>
+                      <span className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                        {warmPct}%
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                        {leadsDist.warm} leads
+                      </span>
                     </div>
-                    <div className="flex h-10 flex-[2] items-center justify-center bg-[#d5dbe2] text-xs font-bold text-slate-800">
-                      20%
+
+                    {/* Cold Category */}
+                    <div className="flex flex-col items-center justify-center text-center p-2 rounded-xl bg-slate-50/60 border border-slate-100/50">
+                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#d5dbe2]" />
+                        <span>Cold</span>
+                      </div>
+                      <span className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                        {coldPct}%
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                        {leadsDist.cold} leads
+                      </span>
                     </div>
                   </div>
 
-                  {/* Legend list */}
-                  <div className="flex flex-col gap-1.5 text-[11px] font-semibold text-slate-600">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#f0533c]" />
-                      <span>Hot</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#f8b16e]" />
-                      <span>Warm</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-[#d5dbe2]" />
-                      <span>Cold</span>
-                    </div>
+                  <div className="text-[11px] font-medium text-slate-400">
+                    Active lead qualification metric
+                  </div>
+                </div>
+
+                {/* Card 3: Email Efficiency */}
+                <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600">Email Efficiency</span>
+                    <FileCheck className="h-4 w-4 text-slate-700" />
+                  </div>
+
+                  <div className="my-2.5">
+                    <span className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                      94%
+                    </span>
+                  </div>
+
+                  <div className="text-xs font-semibold text-emerald-600">
+                    Drafts accepted without edits
                   </div>
                 </div>
               </div>
-
-              <div className="text-xs font-medium text-slate-400">
-                Active lead qualification metric
-              </div>
-            </div>
-
-            {/* Card 3: Email Efficiency */}
-            <div className="flex flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-600">Email Efficiency</span>
-                <FileCheck className="h-4 w-4 text-slate-700" />
-              </div>
-
-              <div className="my-4">
-                <span className="text-4xl font-extrabold tracking-tight text-slate-900">94%</span>
-              </div>
-
-              <div className="text-xs font-semibold text-emerald-600">
-                Drafts accepted without edits
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </section>
       </div>
     </div>

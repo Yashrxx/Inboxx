@@ -11,5 +11,3 @@ export const IMAGE_FALLBACKS = {
   login: ["/api/public/download-image?name=login_hero.jpg"],
   signup: ["/api/public/download-image?name=signup_hero.jpg"],
 };
-
-

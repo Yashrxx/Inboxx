@@ -35,6 +35,24 @@ export function DashboardKnowledgeBase() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer?.files) {
+      await handleFiles(e.dataTransfer.files);
+    }
+  };
 
   const { data: allDocs, isLoading } = useQuery({
     queryKey: ["kb-docs"],
@@ -150,163 +168,179 @@ export function DashboardKnowledgeBase() {
   return (
     <section className="space-y-4 pt-4">
       {/* Header matching provided design */}
-      <div>
+      <div className="pb-2 border-b border-slate-200/80">
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
           Knowledge Base
         </h2>
         <p className="mt-1 text-sm text-slate-500">Manage your documents for AI training.</p>
       </div>
 
-      {/* Upload Box Card */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/40 p-4 sm:p-6">
-          <div className="flex items-center gap-4 text-center sm:text-left">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-[#ea580c]">
-              <FileUp className="h-6 w-6 stroke-[2]" />
-            </div>
-            <div>
-              <p className="text-sm sm:text-base font-bold text-slate-900">
-                Upload .md, .txt, or .pdf files
-              </p>
-              <p className="text-xs sm:text-sm text-slate-500">10 MB recommended max per file</p>
-            </div>
-          </div>
-
-          <div className="shrink-0 w-full sm:w-auto">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf"
-              onChange={(e) => handleFiles(e.target.files)}
-              disabled={isUploading}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isUploading}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#b91c1c] hover:bg-[#991b1b] text-white px-5 py-2.5 text-sm font-bold shadow-xs transition active:scale-[0.98] disabled:opacity-60"
-            >
-              {isUploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <span>Choose Files</span>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Documents List Card */}
-      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
-        <div className="border-b border-slate-100 px-6 py-4 flex items-center justify-between">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-            RECENT DOCUMENTS ({recentDocs.length}
-            {userDocs.length > 5 ? ` of ${userDocs.length}` : ""})
-          </span>
-          <Link
-            to="/chatbot/kb"
-            className="text-xs font-semibold text-[#f0533c] hover:text-[#d03e28] flex items-center gap-1 transition-colors"
+      {/* Combined Knowledge Base Card */}
+      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden divide-y divide-slate-100">
+        {/* Top Section: Upload Box */}
+        <div className="p-5 sm:p-6 bg-slate-50/10">
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`flex flex-col sm:flex-row items-center justify-between gap-4 rounded-xl border border-dashed p-4 sm:p-6 transition-all duration-200 ${
+              isDragging
+                ? "border-[#f0533c] bg-orange-50/50 shadow-inner scale-[1.005]"
+                : "border-slate-200 bg-slate-50/40"
+            }`}
           >
-            Manage all in Knowledge Base <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 transition-colors ${
+                  isDragging ? "text-[#f0533c]" : "text-[#ea580c]"
+                }`}
+              >
+                <FileUp className="h-6 w-6 stroke-[2]" />
+              </div>
+              <div>
+                <p className="text-sm sm:text-base font-bold text-slate-900">
+                  {isDragging ? "Drop your files here!" : "Upload .md, .txt, or .pdf files"}
+                </p>
+                <p className="text-xs sm:text-sm text-slate-500">10 MB recommended max per file</p>
+              </div>
+            </div>
+
+            <div className="shrink-0 w-full sm:w-auto">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".md,.txt,.pdf,.docx,text/markdown,text/plain,application/pdf"
+                onChange={(e) => handleFiles(e.target.files)}
+                disabled={isUploading}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#b91c1c] hover:bg-[#991b1b] text-white px-5 py-2.5 text-sm font-bold shadow-xs transition active:scale-[0.98] disabled:opacity-60"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  <span>Choose Files</span>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="p-6 space-y-4 min-h-[320px]">
-            <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
-            <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
-            <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
-            <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
-            <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
-          </div>
-        ) : recentDocs.length === 0 ? (
-          <div className="px-6 py-16 min-h-[320px] flex flex-col items-center justify-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-[#f0533c] mb-3">
-              <FileText className="h-6 w-6 stroke-[1.8]" />
-            </div>
-            <p className="text-base font-bold text-slate-800">
-              Add your first file for your chatbot&apos;s knowledge base
-            </p>
-            <p className="mt-1 text-xs text-slate-400 max-w-sm">
-              Upload your company documents, guides, or FAQs to start training your AI chatbot.
-            </p>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold transition active:scale-[0.98]"
+        {/* Bottom Section: Documents List */}
+        <div>
+          <div className="bg-slate-50/30 px-6 py-4 flex items-center justify-between border-b border-slate-100">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              RECENT DOCUMENTS ({recentDocs.length}
+              {userDocs.length > 5 ? ` of ${userDocs.length}` : ""})
+            </span>
+            <Link
+              to="/chatbot/kb"
+              className="text-xs font-semibold text-[#f0533c] hover:text-[#d03e28] flex items-center gap-1 transition-colors"
             >
-              <FileUp className="h-3.5 w-3.5" />
-              Upload Document
-            </button>
+              Manage all in Knowledge Base <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
-        ) : (
-          <>
-            <div className="divide-y divide-slate-100">
-              {recentDocs.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                    <FileText className="h-5 w-5 text-slate-400 shrink-0 stroke-[1.8]" />
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-900 truncate">{doc.filename}</p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        {formatUploadDate(doc.created_at)}
-                      </p>
+
+          {isLoading ? (
+            <div className="p-6 space-y-4 min-h-[320px]">
+              <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
+              <div className="h-12 w-full animate-pulse rounded-lg bg-slate-100" />
+            </div>
+          ) : recentDocs.length === 0 ? (
+            <div className="px-6 py-16 min-h-[320px] flex flex-col items-center justify-center text-center bg-white">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-50 text-[#f0533c] mb-3">
+                <FileText className="h-6 w-6 stroke-[1.8]" />
+              </div>
+              <p className="text-base font-bold text-slate-800">
+                Add your first file for your chatbot&apos;s knowledge base
+              </p>
+              <p className="mt-1 text-xs text-slate-400 max-w-sm">
+                Upload your company documents, guides, or FAQs to start training your AI chatbot.
+              </p>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 text-xs font-bold transition active:scale-[0.98]"
+              >
+                <FileUp className="h-3.5 w-3.5" />
+                Upload Document
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-slate-100 bg-white">
+                {recentDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between px-6 py-4 hover:bg-slate-50/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
+                      <FileText className="h-5 w-5 text-slate-400 shrink-0 stroke-[1.8]" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-slate-900 truncate">{doc.filename}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {formatUploadDate(doc.created_at)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Remove "${doc.filename}" from knowledge base?`)) {
+                            deleteMut.mutate(doc.id);
+                          }
+                        }}
+                        disabled={deletingId === doc.id}
+                        className="rounded-lg border border-red-200/90 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
+                      >
+                        {deletingId === doc.id ? "Deleting..." : "Delete"}
+                      </button>
                     </div>
                   </div>
+                ))}
 
-                  <div className="shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (confirm(`Remove "${doc.filename}" from knowledge base?`)) {
-                          deleteMut.mutate(doc.id);
-                        }
-                      }}
-                      disabled={deletingId === doc.id}
-                      className="rounded-lg border border-red-200/90 bg-white px-3.5 py-1.5 text-xs font-semibold text-red-600 shadow-2xs hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
-                    >
-                      {deletingId === doc.id ? "Deleting..." : "Delete"}
-                    </button>
+                {/* Visibly allocate remaining slots up to 5 files */}
+                {Array.from({ length: Math.max(0, 5 - recentDocs.length) }).map((_, i) => (
+                  <div
+                    key={`empty-slot-${i}`}
+                    className="flex items-center justify-between px-6 py-4 bg-slate-50/10 text-slate-400 select-none"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0 pr-4">
+                      <FileText className="h-5 w-5 text-slate-200 shrink-0 stroke-[1.5]" />
+                      <span className="text-sm font-medium text-slate-400">--</span>
+                    </div>
+                    <span className="text-xs font-medium text-slate-300">--</span>
                   </div>
-                </div>
-              ))}
-
-              {/* Visibly allocate remaining slots up to 5 files */}
-              {Array.from({ length: Math.max(0, 5 - recentDocs.length) }).map((_, i) => (
-                <div
-                  key={`empty-slot-${i}`}
-                  className="flex items-center justify-between px-6 py-4 bg-slate-50/20 text-slate-400 select-none"
-                >
-                  <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                    <FileText className="h-5 w-5 text-slate-200 shrink-0 stroke-[1.5]" />
-                    <span className="text-sm font-medium text-slate-400">--</span>
-                  </div>
-                  <span className="text-xs font-medium text-slate-300">--</span>
-                </div>
-              ))}
-            </div>
-
-            {userDocs.length > 5 && (
-              <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3 text-center">
-                <Link
-                  to="/chatbot/kb"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#f0533c] transition-colors"
-                >
-                  Browse all {userDocs.length} documents on Knowledge Base page
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                ))}
               </div>
-            )}
-          </>
-        )}
+
+              {userDocs.length > 5 && (
+                <div className="border-t border-slate-100 bg-slate-50/50 px-6 py-3 text-center">
+                  <Link
+                    to="/chatbot/kb"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#f0533c] transition-colors"
+                  >
+                    Browse all {userDocs.length} documents on Knowledge Base page
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

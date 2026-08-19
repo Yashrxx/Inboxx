@@ -94,11 +94,28 @@ export const getDashboardLiveStats = createServerFn({ method: "GET" })
       .eq("type", "chat")
       .gte("created_at", startOfTodayIso);
 
+    // Total inquiries across all-time
+    const { count: totalInquiriesCount } = await supabaseAdmin
+      .from("answer_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("type", "chat");
+
     // Qualified Leads count
     const { count: qualifiedLeadsCount } = await supabaseAdmin
       .from("leads")
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", workspaceId);
+
+    // Lead score distribution categories
+    const { data: leadsData } = await supabaseAdmin
+      .from("leads")
+      .select("category")
+      .eq("workspace_id", workspaceId);
+
+    const hotCount = (leadsData ?? []).filter((l) => l.category === "hot").length;
+    const warmCount = (leadsData ?? []).filter((l) => l.category === "warm").length;
+    const coldCount = (leadsData ?? []).filter((l) => l.category === "cold").length;
 
     // 3. Automations & Alerts metrics:
     const { data: alertRules } = await supabaseAdmin
@@ -122,6 +139,13 @@ export const getDashboardLiveStats = createServerFn({ method: "GET" })
         hasIntegrations: hasAnyIntegration,
         inquiriesToday: chatInquiriesToday ?? 0,
         qualifiedLeads: qualifiedLeadsCount ?? 0,
+        totalInquiries: totalInquiriesCount ?? 0,
+        leadsDistribution: {
+          hot: hotCount,
+          warm: warmCount,
+          cold: coldCount,
+          total: (leadsData ?? []).length,
+        },
       },
       email: {
         status: "live" as const,

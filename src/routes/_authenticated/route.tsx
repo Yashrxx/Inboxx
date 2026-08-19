@@ -102,6 +102,7 @@ function AdminShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const activeModule = MODULE_SUBNAVS.find(
     (m) => pathname === m.prefix || pathname.startsWith(m.prefix + "/"),
@@ -263,11 +264,11 @@ function AdminShell() {
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-8">
-          <div className="flex items-center gap-3 sm:gap-4 flex-1">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 h-full min-w-0">
             {/* Hamburger Button: Shown on mobile for dashboard, shown on ALL screens for non-dashboard pages */}
             <button
               onClick={() => setMobileOpen(true)}
-              className={`flex items-center gap-2 rounded-xl p-2 text-slate-700 hover:bg-slate-100 transition-all ${
+              className={`flex items-center gap-2 rounded-xl p-2 text-slate-700 hover:bg-slate-100 transition-all shrink-0 ${
                 isDashboardPage
                   ? "lg:hidden"
                   : "bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-2xs"
@@ -281,66 +282,42 @@ function AdminShell() {
               )}
             </button>
 
-            {/* Brand indicator on non-dashboard pages for easy context */}
-            {!isDashboardPage && (
-              <Link
-                to="/dashboard"
-                className="hidden md:flex items-center gap-2 pr-2 border-r border-slate-200"
-              >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f0533c] text-white">
-                  <Inbox className="h-4 w-4 stroke-[2.2]" />
+            {/* Injected Secondary Navbar (or Brand fallback when no subnav exists) */}
+            {activeModule ? (
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none h-full min-w-0">
+                <span className="text-slate-400 uppercase tracking-widest text-[9px] font-extrabold mr-4 shrink-0 select-none pb-0.5">
+                  {activeModule.prefix.replace("/", "").replace("-", " ")}
+                </span>
+                <div className="flex items-center gap-4 sm:gap-6 h-full">
+                  {activeModule.nav.map((item) => {
+                    const isSubActive = item.exact
+                      ? pathname === item.to || pathname === item.to + "/"
+                      : pathname === item.to || pathname.startsWith(item.to + "/");
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        className={`text-[10px] sm:text-xs font-bold transition-all border-b-2 h-16 flex items-center shrink-0 -mb-px ${
+                          isSubActive
+                            ? "border-[#f0533c] text-[#f0533c]"
+                            : "border-transparent text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
                 </div>
-                <span className="text-sm font-bold text-slate-900">{BRAND_NAME}</span>
+              </div>
+            ) : (
+              <Link to="/dashboard" className="flex items-center gap-2 pr-2 shrink-0">
+                <span className="text-xs sm:text-sm font-bold text-slate-900">{BRAND_NAME}</span>
               </Link>
             )}
-
-            {/* Search Bar */}
-            <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tasks, rules, or drafts..."
-                className="w-full rounded-full border border-slate-200 bg-white py-1.5 pl-10 pr-4 text-xs sm:text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#f0533c] focus:outline-none focus:ring-2 focus:ring-[#f0533c]/15"
-              />
-            </div>
           </div>
 
           {/* Right Navigation & User Controls */}
           <div className="flex items-center gap-4 sm:gap-6">
-            {/* Top Navigation Tabs */}
-            <nav className="hidden sm:flex items-center gap-6 text-sm font-semibold">
-              <Link
-                to="/dashboard"
-                className={`transition-colors pb-0.5 ${
-                  pathname === "/dashboard" || pathname === "/dashboard/"
-                    ? "border-b-2 border-[#f0533c] text-slate-900 font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Hub
-              </Link>
-              <Link
-                to="/chatbot"
-                className={`transition-colors pb-0.5 ${
-                  pathname.startsWith("/chatbot") ||
-                  pathname.startsWith("/email-drafts") ||
-                  pathname.startsWith("/automations")
-                    ? "border-b-2 border-[#f0533c] text-slate-900 font-bold"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Services
-              </Link>
-              <Link
-                to="/chatbot/kb"
-                className="text-slate-600 hover:text-slate-900 transition-colors pb-0.5"
-              >
-                Docs
-              </Link>
-            </nav>
-
             {/* Icon buttons */}
             <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500">
               <Link
@@ -360,51 +337,70 @@ function AdminShell() {
               </Link>
             </div>
 
-            {/* User Profile Avatar */}
-            <Link to="/settings" className="flex items-center gap-2 group" title="Account settings">
-              {userAvatar ? (
-                <img
-                  src={userAvatar}
-                  alt={fullName}
-                  className="h-8 w-8 rounded-full object-cover ring-2 ring-slate-100 group-hover:ring-[#f0533c]/30 transition"
-                />
-              ) : (
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white group-hover:bg-[#f0533c] transition">
-                  {fullName.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </Link>
-          </div>
-        </header>
+            {/* User Profile Avatar Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 group focus:outline-none"
+                title="User menu"
+              >
+                {userAvatar ? (
+                  <img
+                    src={userAvatar}
+                    alt={fullName}
+                    className="h-8 w-8 rounded-full object-cover ring-2 ring-slate-100 group-hover:ring-[#f0533c]/30 transition"
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white group-hover:bg-[#f0533c] transition">
+                    {fullName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
 
-        {/* Optional Secondary Contextual Tab Header for deep subpages */}
-        {activeModule && (
-          <div className="border-b border-slate-200/70 bg-white/60 backdrop-blur-xs px-4 sm:px-8 py-2">
-            <div className="flex items-center gap-2 overflow-x-auto text-xs font-semibold">
-              <span className="text-slate-400 uppercase tracking-wider text-[10px] pr-2 border-r border-slate-200">
-                {activeModule.prefix.replace("/", "").replace("-", " ")}
-              </span>
-              {activeModule.nav.map((item) => {
-                const isSubActive = item.exact
-                  ? pathname === item.to || pathname === item.to + "/"
-                  : pathname === item.to || pathname.startsWith(item.to + "/");
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    className={`rounded-lg px-2.5 py-1 transition-all ${
-                      isSubActive
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+              {dropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+                  <div className="absolute right-0 mt-2.5 w-48 origin-top-right rounded-xl border border-slate-200/90 bg-white p-1.5 shadow-lg ring-1 ring-black/5 focus:outline-none z-50">
+                    <div className="px-3 py-2 border-b border-slate-100 text-left">
+                      <p className="text-xs font-bold text-slate-900 truncate">{fullName}</p>
+                      <p className="text-[10px] font-semibold text-slate-400 truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                    <div className="py-1">
+                      <Link
+                        to="/profile"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-[#f0533c] transition-colors"
+                      >
+                        <User className="h-3.5 w-3.5 text-slate-400" />
+                        <span>View My Profile</span>
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+                      >
+                        <Settings className="h-3.5 w-3.5 text-slate-400" />
+                        <span>Settings</span>
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          signOut();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left"
+                      >
+                        <LogOut className="h-3.5 w-3.5 text-rose-400" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        )}
+        </header>
 
         {/* Main Body */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-8 lg:p-10">

@@ -14,7 +14,6 @@ import { listLeads, updateLeadStatus, getLeadThread, deleteLead } from "@/lib/le
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ListSkeleton } from "@/components/skeletons";
-
 import { Button } from "@/components/ui/button";
 
 type Lead = {

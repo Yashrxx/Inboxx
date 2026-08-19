@@ -104,7 +104,7 @@ export function ReviewPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold">Review &amp; Feedback</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Review &amp; Feedback</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Auto-flagged answers are highlighted. Rate and add corrections — these are recorded for a
         human to fold into the knowledge base.
