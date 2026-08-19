@@ -101,6 +101,7 @@ function AdminShell() {
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -133,16 +134,13 @@ function AdminShell() {
         />
       )}
 
-      {/* 1. Left Sidebar Panel (Persistent on Dashboard for desktop, Drawer on other pages) */}
+      {/* 1. Left Sidebar Panel (Persistent on desktop for all pages by default, collapsable via Hamburger) */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-800 bg-[#0f172a] px-4 py-6 transition-transform duration-200 ease-in-out ${
-          isDashboardPage
-            ? mobileOpen
-              ? "translate-x-0"
-              : "-translate-x-full lg:static lg:translate-x-0"
-            : mobileOpen
-              ? "translate-x-0 shadow-2xl"
-              : "-translate-x-full"
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col justify-between border-r border-slate-800 bg-[#0f172a] px-4 py-6 transition-all duration-200 ease-in-out ${
+          mobileOpen
+            ? "translate-x-0 shadow-2xl"
+            : "-translate-x-full " +
+              (sidebarCollapsed ? "lg:-translate-x-full lg:fixed" : "lg:static lg:translate-x-0")
         }`}
       >
         <div className="flex flex-col">
@@ -165,9 +163,7 @@ function AdminShell() {
             </Link>
             <button
               onClick={() => setMobileOpen(false)}
-              className={`rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white ${
-                isDashboardPage ? "lg:hidden" : ""
-              }`}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white lg:hidden"
               title="Close panel"
             >
               <X className="h-5 w-5" />
@@ -265,21 +261,20 @@ function AdminShell() {
         {/* Top Header Bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/80 bg-white px-4 sm:px-8">
           <div className="flex items-center gap-3 sm:gap-4 flex-1 h-full min-w-0">
-            {/* Hamburger Button: Shown on mobile for dashboard, shown on ALL screens for non-dashboard pages */}
+            {/* Hamburger Button: Shown on all screens, toggles collapse on desktop and opens drawer on mobile */}
             <button
-              onClick={() => setMobileOpen(true)}
-              className={`flex items-center gap-2 rounded-xl p-2 text-slate-700 hover:bg-slate-100 transition-all shrink-0 ${
-                isDashboardPage
-                  ? "lg:hidden"
-                  : "bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-2xs"
-              }`}
-              title="Open Navigation Menu"
-              aria-label="Open Navigation Menu"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+                  setSidebarCollapsed(!sidebarCollapsed);
+                } else {
+                  setMobileOpen(true);
+                }
+              }}
+              className="flex items-center justify-center rounded-xl p-2.5 text-slate-700 hover:bg-slate-100 transition-all shrink-0 bg-slate-50 border border-slate-200 hover:border-slate-300 shadow-2xs"
+              title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              aria-label="Toggle Sidebar"
             >
               <Menu className="h-5 w-5 text-slate-700" />
-              {!isDashboardPage && (
-                <span className="hidden sm:inline text-xs font-bold text-slate-700 pr-1">Menu</span>
-              )}
             </button>
 
             {/* Injected Secondary Navbar (or Brand fallback when no subnav exists) */}
