@@ -92,11 +92,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "icon",
         type: "image/svg+xml",
-        href: "/chat-bot.svg",
+        href: "/app-logo.svg",
       },
       {
         rel: "shortcut icon",
-        href: "/chat-bot.svg",
+        href: "/app-logo.svg",
       },
     ],
   }),
