@@ -94,6 +94,7 @@ function SignupPage() {
               src={SIGNUP_HERO_IMG}
               alt="Team collaborating in office"
               className="absolute inset-0 z-0 w-full h-full object-cover opacity-80"
+              referrerPolicy="no-referrer"
             />
             {/* Gradient Overlay */}
             <div className="absolute inset-0 z-[1] bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />

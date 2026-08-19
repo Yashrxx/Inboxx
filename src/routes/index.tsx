@@ -114,6 +114,7 @@ function LandingPage() {
             src={HOME_HERO_IMG}
             alt="AI Assistant Modern Workspace"
             className="h-full w-full object-cover object-right opacity-80 sm:opacity-90 lg:opacity-100"
+            referrerPolicy="no-referrer"
           />
           {/* Fading overlay to protect text contrast on the left without hiding the right-side image */}
           <div className="absolute inset-0 bg-gradient-to-r from-[#fafafc] via-[#fafafc]/90 to-transparent sm:max-w-2xl lg:max-w-3xl" />
