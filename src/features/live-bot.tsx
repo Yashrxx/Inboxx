@@ -5,6 +5,7 @@ import { getMyWorkspaceSettings } from "@/lib/workspace.functions";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ingestDocument } from "@/lib/kb.functions";
+import { listLogs, updateLog } from "@/lib/logs.functions";
 import { toast } from "sonner";
 import {
   Bot,
@@ -19,6 +20,11 @@ import {
   Check,
   AlertCircle,
   HelpCircle,
+  Edit2,
+  ThumbsUp,
+  ThumbsDown,
+  Wrench,
+  CheckCircle2,
 } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -36,8 +42,23 @@ type TemporaryDoc = {
 const DEFAULT_WELCOME =
   "Hello! I'm your Inboxx Assistant. I can help you manage your conversations, set up automation rules, or answer any questions about the platform. How can I help you today?";
 
+function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // RFC4122 v4 UUID generator fallback for non-SSL/sandboxed environments
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export function LiveBotPage() {
   const fetchSettings = useServerFn(getMyWorkspaceSettings);
+  const fetchLogs = useServerFn(listLogs);
+  const mutateLog = useServerFn(updateLog);
+
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ["my-workspace-settings"],
     queryFn: () => fetchSettings(),
@@ -51,10 +72,33 @@ export function LiveBotPage() {
   const [busy, setBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // In-line message editing state
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>("");
+
   // Temporary testing sandbox files state (Secondary Knowledge Base)
   const [temporaryDocs, setTemporaryDocs] = useState<TemporaryDoc[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const sandboxFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Quick Fix & Retraining panel state
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [correctionNote, setCorrectionNote] = useState("");
+  const [submittingFix, setSubmittingFix] = useState(false);
+
+  // Stable session ID for this live testing session (uses safe v4 generator fallback)
+  const sessionIdRef = useRef<string>(generateUUID());
+
+  // Query live-bot's active database logs
+  const { data: allLogs, refetch: refetchLogs } = useQuery({
+    queryKey: ["live-bot-logs", sessionIdRef.current],
+    queryFn: () => fetchLogs({ data: { type: "chat", limit: 100 } }),
+    enabled: !!workspaceId,
+  });
+
+  // Filter logs corresponding ONLY to the current active testing session
+  const sessionLogs = (allLogs ?? []).filter((l) => l.session_id === sessionIdRef.current);
 
   // Initialize conversation with welcome message once settings load
   useEffect(() => {
@@ -62,13 +106,6 @@ export function LiveBotPage() {
       setMessages([{ role: "assistant", content: welcomeMessage }]);
     }
   }, [welcomeMessage, messages.length]);
-
-  // Stable session ID for this live testing session
-  const sessionIdRef = useRef<string>(
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `live-session-${Date.now()}`,
-  );
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -80,11 +117,21 @@ export function LiveBotPage() {
   // Restart/Refresh conversation: resets state & creates fresh session ID
   const handleRefresh = () => {
     setMessages([{ role: "assistant", content: welcomeMessage }]);
-    sessionIdRef.current =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `live-session-${Date.now()}`;
+    sessionIdRef.current = generateUUID();
+    setFeedbackRating(null);
+    setCorrectionNote("");
     toast.success("Conversation restarted successfully!");
+    refetchLogs();
+  };
+
+  // Direct in-place editing of chat message content
+  const updateMessageContent = (index: number, newContent: string) => {
+    setMessages((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], content: newContent };
+      return updated;
+    });
+    toast.success("Message modified locally!");
   };
 
   async function sendMessage(textToSend?: string) {
@@ -190,6 +237,8 @@ export function LiveBotPage() {
       ]);
     } finally {
       setBusy(false);
+      // Automatically refetch active logs so the Quick Fix panel is populated instantly!
+      setTimeout(() => refetchLogs(), 1200);
     }
   }
 
@@ -297,11 +346,42 @@ export function LiveBotPage() {
     }
   };
 
+  // Submit log corrections and retrain the bot instantly
+  const submitQuickFix = async (logId: string) => {
+    if (!feedbackRating) {
+      toast.error("Please rate the bot response (Good or Needs Fix) before submitting feedback.");
+      return;
+    }
+
+    setSubmittingFix(true);
+    try {
+      await mutateLog({
+        data: {
+          id: logId,
+          rating: feedbackRating,
+          correction: correctionNote || null,
+          status: feedbackRating === 1 ? "good" : "needs_fix",
+        },
+      });
+
+      toast.success("Feedback saved! Bot was corrected and retrained with your correction.");
+      setCorrectionNote("");
+      setFeedbackRating(null);
+      refetchLogs();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit correction notes.");
+    } finally {
+      setSubmittingFix(false);
+    }
+  };
+
   const SUGGESTIONS = [
     { text: "How do I start?", query: "How do I start?" },
     { text: "What can I do?", query: "What can you do?" },
     { text: "Pricing inquiry", query: "Can you tell me about the pricing options?" },
   ];
+
+  const latestLog = sessionLogs[0];
 
   return (
     <div className="space-y-4">
@@ -312,8 +392,7 @@ export function LiveBotPage() {
             Live Testing & Sandbox
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Admin Testing Suite: Test conversations and trial temporary files before adding them to
-            the database.
+            Admin Testing Suite: Test conversations, edit chats, and trial sandbox files.
           </p>
         </div>
 
@@ -387,6 +466,8 @@ export function LiveBotPage() {
 
               {messages.map((m, idx) => {
                 const isUser = m.role === "user";
+                const isEditing = editingIndex === idx;
+
                 return (
                   <div
                     key={idx}
@@ -399,22 +480,61 @@ export function LiveBotPage() {
                       </div>
                     )}
 
-                    <div className="space-y-3 max-w-[82%]">
-                      <div
-                        className={`px-4 py-3 text-sm leading-relaxed shadow-3xs ${
-                          isUser
-                            ? "bg-slate-100/90 text-slate-800 rounded-2xl rounded-tr-sm"
-                            : "bg-orange-100/85 text-orange-950 border border-orange-200 rounded-2xl rounded-tl-sm font-medium"
-                        }`}
-                      >
-                        {isUser ? (
-                          <p className="whitespace-pre-wrap">{m.content}</p>
-                        ) : (
-                          <div className="markdown-body">
-                            <MarkdownRenderer content={m.content} />
+                    <div className="space-y-3 max-w-[82%] relative group">
+                      {isEditing ? (
+                        <div className="rounded-xl border border-orange-200 bg-white p-3 space-y-2 min-w-[280px]">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full text-xs p-2 rounded border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none min-h-[70px]"
+                          />
+                          <div className="flex justify-end gap-1">
+                            <button
+                              onClick={() => setEditingIndex(null)}
+                              className="text-[9px] px-2 py-1 rounded bg-slate-100 font-bold text-slate-600"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => {
+                                updateMessageContent(idx, editingText);
+                                setEditingIndex(null);
+                              }}
+                              className="text-[9px] px-2 py-1 rounded bg-[#f0533c] font-bold text-white"
+                            >
+                              Save
+                            </button>
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div
+                          className={`px-4 py-3 text-sm leading-relaxed shadow-3xs group-hover:pr-8 transition-all ${
+                            isUser
+                              ? "bg-slate-100/90 text-slate-800 rounded-2xl rounded-tr-sm"
+                              : "bg-orange-100/85 text-orange-950 border border-orange-200 rounded-2xl rounded-tl-sm font-medium"
+                          }`}
+                        >
+                          {isUser ? (
+                            <p className="whitespace-pre-wrap">{m.content}</p>
+                          ) : (
+                            <div className="markdown-body">
+                              <MarkdownRenderer content={m.content} />
+                            </div>
+                          )}
+
+                          {/* Quick Edit icon overlay on Hover */}
+                          <button
+                            onClick={() => {
+                              setEditingIndex(idx);
+                              setEditingText(m.content);
+                            }}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-[#f0533c] opacity-0 group-hover:opacity-100 transition-opacity shadow-3xs"
+                            title="Edit message locally"
+                          >
+                            <Edit2 className="h-2.5 w-2.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* User Avatar on the right for user messages */}
@@ -502,8 +622,9 @@ export function LiveBotPage() {
             </div>
           </div>
 
-          {/* RIGHT AREA (25% width): Temporary Secondary Knowledge Base Panel */}
-          <div className="w-full lg:w-[25%] space-y-4">
+          {/* RIGHT AREA (25% width): Temporary Secondary KB & Quick Fix Panel */}
+          <div className="w-full lg:w-[25%] space-y-4 flex flex-col">
+            {/* CARD 1: Secondary KB Sandbox */}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
               <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
                 <FileText className="h-4.5 w-4.5 text-[#f0533c]" />
@@ -567,7 +688,7 @@ export function LiveBotPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-2 max-h-[220px] overflow-y-auto pr-0.5">
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto pr-0.5">
                     {temporaryDocs.map((doc) => (
                       <div
                         key={doc.id}
@@ -636,16 +757,107 @@ export function LiveBotPage() {
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Helpful sandbox info/warning notice */}
-              <div className="rounded-xl bg-orange-50/20 border border-orange-100/50 p-2.5 text-[10px] text-slate-600 flex gap-2">
-                <AlertCircle className="h-3.5 w-3.5 text-[#f0533c] shrink-0 mt-0.5" />
-                <p className="leading-relaxed">
-                  <strong>Sandbox Rules:</strong> These temporary files are stored in-memory in your
-                  browser. Questions asked in the chat will dynamically refer to them with
-                  first-priority recall.
-                </p>
+            {/* CARD 2: Live Bot Quick Fix & Feedback Ingestion */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4 flex-1">
+              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                <Wrench className="h-4.5 w-4.5 text-[#f0533c]" />
+                <h3 className="text-sm font-bold text-slate-800 leading-tight">
+                  Bot Feedback & Retraining
+                </h3>
               </div>
+
+              {sessionLogs.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200/60 p-5 text-center bg-slate-50/10 min-h-[140px] flex flex-col items-center justify-center">
+                  <Bot className="h-6 w-6 text-slate-300 mb-1.5" />
+                  <p className="text-[11px] font-bold text-slate-700">No active exchanges logged</p>
+                  <p className="text-[10px] text-slate-400 mt-1 leading-normal max-w-[180px] mx-auto">
+                    Submit a message in the chat on the left to activate correction tools.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="rounded-xl bg-orange-50/20 border border-orange-100/50 p-3 space-y-1.5 text-xs text-slate-700">
+                    <p className="font-bold text-slate-800 uppercase tracking-wider text-[9px] text-[#f0533c]">
+                      Latest Exchange logged
+                    </p>
+                    <div className="space-y-1 line-clamp-2">
+                      <p className="truncate">
+                        <strong className="text-slate-900">Q:</strong> {latestLog.incoming_text}
+                      </p>
+                      <p className="text-slate-500 truncate">
+                        <strong className="text-slate-950 font-bold">A:</strong>{" "}
+                        {latestLog.answer_text}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Feedback Controls */}
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-bold text-slate-700">Rate answer quality:</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFeedbackRating(1)}
+                        className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold transition-all shadow-3xs ${
+                          feedbackRating === 1
+                            ? "bg-emerald-50 border-emerald-300 text-emerald-700"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        <span>Good</span>
+                      </button>
+                      <button
+                        onClick={() => setFeedbackRating(-1)}
+                        className={`flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg border text-xs font-semibold transition-all shadow-3xs ${
+                          feedbackRating === -1
+                            ? "bg-red-50 border-red-300 text-red-700"
+                            : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-600"
+                        }`}
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                        <span>Needs Fix</span>
+                      </button>
+                    </div>
+
+                    {/* Correction Text Area */}
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold text-slate-700 flex justify-between items-center">
+                        <span>Correction Note:</span>
+                        <span className="text-[9px] text-muted-foreground font-normal italic">
+                          Retrains chatbot automatically
+                        </span>
+                      </p>
+                      <textarea
+                        value={correctionNote}
+                        onChange={(e) => setCorrectionNote(e.target.value)}
+                        placeholder="Type the ideal response, correction or detail the bot should remember..."
+                        className="w-full text-xs p-2 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#f0533c] min-h-[90px]"
+                      />
+                    </div>
+
+                    {/* Submit Correction button */}
+                    <button
+                      onClick={() => submitQuickFix(latestLog.id)}
+                      disabled={submittingFix || feedbackRating === null}
+                      className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-white font-bold bg-[#f0533c] hover:bg-[#d83f29] disabled:bg-slate-200 disabled:text-slate-400 py-2 rounded-xl transition-all shadow-xs"
+                    >
+                      {submittingFix ? (
+                        <>
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                          <span>Retraining Bot...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Submit & Retrain Bot</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

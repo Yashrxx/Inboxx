@@ -23,9 +23,36 @@ export const Route = createFileRoute("/api/public/download-image")({
         }
 
         let filePath = path.join(process.cwd(), "public", name);
-        if (!fs.existsSync(filePath)) {
+
+        // Map request names directly to pristine backup binaries to bypass git repository file corruption on external deployments
+        if (name === "home_hero.jpg") {
+          filePath = path.join(
+            process.cwd(),
+            "src",
+            "assets",
+            "images",
+            "workspace_hero_bg_1787032051238.jpg",
+          );
+        } else if (name === "login_hero.jpg") {
+          filePath = path.join(
+            process.cwd(),
+            "src",
+            "assets",
+            "images",
+            "office_hero_login_1787028506237.jpg",
+          );
+        } else if (name === "signup_hero.jpg") {
+          filePath = path.join(
+            process.cwd(),
+            "src",
+            "assets",
+            "images",
+            "office_team_signup_1787029114301.jpg",
+          );
+        } else if (!fs.existsSync(filePath)) {
           filePath = path.join(process.cwd(), "src", "assets", name);
         }
+
         if (!fs.existsSync(filePath)) {
           return new Response("File not found", { status: 404 });
         }
