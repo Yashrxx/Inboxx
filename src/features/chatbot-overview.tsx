@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getMyWorkspaceSettings, updateMyWorkspaceSettings } from "@/lib/workspace.functions";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Check, Copy } from "lucide-react";
+import { Loader2, Check, Copy, Pencil } from "lucide-react";
 
 export function ChatbotOverview() {
   const fetchSettings = useServerFn(getMyWorkspaceSettings);
@@ -23,6 +23,7 @@ export function ChatbotOverview() {
   const [welcome, setWelcome] = useState("");
   const [prompt, setPrompt] = useState("");
   const [savedTick, setSavedTick] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (data) {
@@ -31,11 +32,16 @@ export function ChatbotOverview() {
     }
   }, [data]);
 
+  const originalWelcome = data?.welcomeMessage ?? "";
+  const originalPrompt = data?.systemPrompt ?? "";
+  const hasChanges = welcome !== originalWelcome || prompt !== originalPrompt;
+
   const mut = useMutation({
     mutationFn: () => saveSettings({ data: { welcomeMessage: welcome, systemPrompt: prompt } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my-workspace-settings"] });
       setSavedTick(true);
+      setIsEditing(false);
       setTimeout(() => setSavedTick(false), 2000);
     },
   });
@@ -46,11 +52,20 @@ export function ChatbotOverview() {
   return (
     <div className="space-y-4">
       {/* Page Title & Subtitle */}
-      <div className="pb-2 border-b border-border">
-        <h1 className="text-xl font-semibold text-slate-900">Personalized Chatbot</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Your live bot, its public URL, and how it behaves.
-        </p>
+      <div className="pb-2 border-b border-border flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Personalized Chatbot</h1>
+          <p className="text-xs text-muted-foreground leading-none mt-0.5">
+            Your live bot, its public URL, and how it behaves.
+          </p>
+        </div>
+        <Link
+          to="/chatbot/live"
+          className="inline-flex items-center justify-center gap-1.5 rounded bg-[#f0533c] hover:bg-[#d83f29] text-white px-3 py-1.5 text-xs font-semibold shadow-sm transition-all shrink-0"
+        >
+          <span>Converse with Live Bot</span>
+          <span>→</span>
+        </Link>
       </div>
 
       {/* Card 1: Public Chat URL */}
@@ -95,28 +110,77 @@ export function ChatbotOverview() {
             </button>
           </div>
         )}
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground max-w-lg leading-relaxed">
-            Test and interact with your bot directly inside the app on the dedicated Live Bot page.
-          </p>
-          <Link
-            to="/chatbot/live"
-            className="inline-flex items-center justify-center gap-1 rounded bg-sky-600 hover:bg-sky-700 text-white px-3.5 py-1.5 text-xs font-medium shadow-sm transition-all shrink-0"
-          >
-            <span>Converse with Live Bot</span>
-            <span>→</span>
-          </Link>
-        </div>
       </div>
 
       {/* Card 2: Configuration */}
       <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Chatbot configuration</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
-            Customize how your bot greets users and how it behaves. Changes apply immediately.
-          </p>
+        {/* Card Header with Edit button on the right */}
+        <div className="pb-3 border-b border-slate-100 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Chatbot configuration</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+              Customize how your bot greets users and how it behaves. Changes apply immediately.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {savedTick && (
+              <span className="text-xs font-semibold text-emerald-600 animate-fade-in mr-2">
+                Saved successfully ✓
+              </span>
+            )}
+            {mut.isError && (
+              <span className="text-xs font-semibold text-red-600 mr-2">Failed to save.</span>
+            )}
+
+            {!isEditing ? (
+              <button
+                type="button"
+                onClick={() => setIsEditing(true)}
+                className="inline-flex items-center justify-center gap-1.5 rounded bg-[#f0533c] hover:bg-[#d83f29] text-white px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all"
+              >
+                <Pencil className="h-3 w-3" />
+                <span>Edit</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={mut.isPending || !hasChanges}
+                  onClick={() => mut.mutate()}
+                  className={`inline-flex items-center justify-center gap-1.5 rounded px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all ${
+                    hasChanges
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  {mut.isPending ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3 w-3" />
+                      <span>Save changes</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={mut.isPending}
+                  onClick={() => {
+                    setWelcome(originalWelcome);
+                    setPrompt(originalPrompt);
+                    setIsEditing(false);
+                  }}
+                  className="inline-flex items-center justify-center gap-1.5 rounded border border-border bg-background hover:bg-secondary px-3 py-1.5 text-xs font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 space-y-4">
@@ -132,8 +196,9 @@ export function ChatbotOverview() {
                 type="text"
                 value={welcome}
                 onChange={(e) => setWelcome(e.target.value)}
+                disabled={!isEditing}
                 placeholder="Hello! How can I help you today?"
-                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all"
+                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all disabled:opacity-75 disabled:bg-slate-50/50"
               />
             )}
             <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
@@ -150,46 +215,15 @@ export function ChatbotOverview() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
+                disabled={!isEditing}
                 rows={4}
                 placeholder="You are a helpful AI assistant. Answer only from the CONTEXT provided…"
-                className="w-full rounded-md border border-input bg-background p-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all leading-relaxed"
+                className="w-full rounded-md border border-input bg-background p-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/30 transition-all leading-relaxed disabled:opacity-75 disabled:bg-slate-50/50"
               />
             )}
             <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
               Instructions that tell the bot how to behave (tone, persona, guardrails).
             </p>
-          </div>
-
-          {/* Action buttons */}
-          <div className="pt-1 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => mut.mutate()}
-              disabled={mut.isPending}
-              className="inline-flex items-center justify-center gap-1.5 rounded bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-1.5 text-xs font-medium shadow-sm transition-all"
-            >
-              {mut.isPending ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  <span>Save changes</span>
-                </>
-              )}
-            </button>
-            {savedTick && (
-              <span className="text-xs font-semibold text-emerald-600 animate-fade-in">
-                Saved successfully ✓
-              </span>
-            )}
-            {mut.isError && (
-              <span className="text-xs font-semibold text-red-600">
-                Failed to save. Please try again.
-              </span>
-            )}
           </div>
         </div>
       </div>

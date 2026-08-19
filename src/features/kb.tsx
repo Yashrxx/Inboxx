@@ -272,11 +272,8 @@ export function KbPage() {
     }
   }
 
-  // Filter out automated corrections
-  const userDocs = (docs ?? []).filter((d) => {
-    const fn = d.filename.toLowerCase();
-    return !fn.startsWith("admin_correction_") && !fn.includes("admin_correction_");
-  });
+  // Show all files including automated corrections (review chunks)
+  const userDocs = docs ?? [];
 
   return (
     <div className="space-y-6">
@@ -332,7 +329,7 @@ export function KbPage() {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={busy}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-1.5 text-xs font-semibold shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded bg-[#f0533c] hover:bg-[#d83f29] text-white px-4 py-1.5 text-xs font-semibold shadow-sm transition active:scale-[0.98] disabled:opacity-60"
               >
                 {busy ? (
                   <>
@@ -425,36 +422,56 @@ export function KbPage() {
             Image Library
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Embed diagrams inline if customer questions align with the image's tags.
+            Embed images inline if customer questions align with the image's tags.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
           {/* Left Column: Form */}
-          <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-            <h3 className="text-xs font-bold uppercase text-slate-900 mb-3">Upload Diagram</h3>
-            <form onSubmit={handleImgSubmit} className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Select Image File (.png, .jpg, .svg)
-                </label>
+          <div className="rounded-lg border border-border bg-card p-4 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase text-slate-900">Upload Image</h3>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-lg border border-dashed border-border p-4 bg-secondary/10 transition-all duration-200">
+              <div className="flex items-center gap-3.5 text-center sm:text-left">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f0533c]/10 text-[#f0533c]">
+                  <ImageIcon className="h-5 w-5 stroke-[2]" />
+                </div>
+                <div>
+                  <p className="text-xs sm:text-sm font-bold text-foreground">Upload Image</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Select an image to add tags & upload
+                  </p>
+                </div>
+              </div>
+
+              <div className="shrink-0 w-full sm:w-auto">
                 <input
                   ref={imgFileInput}
                   type="file"
                   accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml"
                   onChange={handleImgChange}
                   disabled={imgBusy}
-                  className="w-full text-xs file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2.5 file:py-1 file:text-xs file:font-semibold hover:file:bg-secondary/80"
+                  className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={() => imgFileInput.current?.click()}
+                  disabled={imgBusy}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded bg-[#f0533c] hover:bg-[#d83f29] text-white px-4 py-1.5 text-xs font-semibold shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  Choose Image
+                </button>
               </div>
+            </div>
 
+            <form onSubmit={handleImgSubmit} className="space-y-4">
               {imgPreviewUrl && (
-                <div className="space-y-3 pt-3 border-t border-border">
-                  <div className="flex justify-center bg-secondary/10 p-2 rounded border border-dashed border-border">
+                <div className="space-y-3 pt-3 border-t border-border w-full">
+                  <div className="flex justify-center bg-secondary/10 p-2 rounded border border-dashed border-border w-full max-w-xs mx-auto">
                     <img src={imgPreviewUrl} className="max-h-24 object-contain rounded" />
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 w-full text-left">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-muted-foreground mb-0.5">
                         Image Name *
@@ -465,7 +482,7 @@ export function KbPage() {
                         disabled={imgBusy}
                         className="w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:border-primary"
                         required
-                        placeholder="e.g. Stainless Steel Boiler Diagram"
+                        placeholder="e.g. Stainless Steel Boiler Image"
                       />
                     </div>
                     <div>
@@ -477,7 +494,7 @@ export function KbPage() {
                         onChange={(e) => setImgTags(e.target.value)}
                         disabled={imgBusy}
                         className="w-full rounded border border-input bg-background px-2 py-1 text-xs text-foreground focus:border-primary"
-                        placeholder="e.g. boiler specs stainless steel layout diagram"
+                        placeholder="e.g. boiler specs stainless steel layout image"
                       />
                     </div>
                     <div>
@@ -496,17 +513,19 @@ export function KbPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="submit"
-                  disabled={imgBusy || !selectedImg || !imgName.trim()}
-                  className="rounded bg-primary hover:bg-primary/90 text-primary-foreground px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all"
-                >
-                  {imgBusy ? "Uploading..." : "Upload Image"}
-                </button>
-                {imgError && <span className="text-xs text-destructive">{imgError}</span>}
-                {imgSuccess && <span className="text-xs text-emerald-600">{imgSuccess}</span>}
-              </div>
+              {selectedImg && (
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="submit"
+                    disabled={imgBusy || !imgName.trim()}
+                    className="rounded bg-[#f0533c] hover:bg-[#d83f29] text-white px-4 py-1.5 text-xs font-semibold shadow-sm transition-all"
+                  >
+                    {imgBusy ? "Uploading..." : "Upload Image"}
+                  </button>
+                  {imgError && <span className="text-xs text-destructive">{imgError}</span>}
+                  {imgSuccess && <span className="text-xs text-emerald-600">{imgSuccess}</span>}
+                </div>
+              )}
             </form>
           </div>
 
